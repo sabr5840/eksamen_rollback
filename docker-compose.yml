@@ -1,0 +1,30 @@
+services:
+  featurehub:
+    image: featurehub/party-server:latest
+    container_name: featurehub
+    ports:
+      - "8085:8085"
+    environment:
+      - FEATUREHUB_DB=mem
+      - FEATUREHUB_PORT=8085
+
+  app:
+    build: ./app
+    image: rollback-demo:${IMAGE_TAG}
+    container_name: rollback-demo-app
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env.featurehub
+    environment:
+      - PORT=8080
+      - APP_VERSION=${IMAGE_TAG}
+      - FAIL_HEALTH=${FAIL_HEALTH:-0}
+    depends_on:
+      - featurehub
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 2s
+      retries: 6
+      start_period: 3s

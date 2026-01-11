@@ -1,0 +1,12 @@
+{
+  "name": "rollback-demo",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "featurehub-javascript-client-sdk": "^1.5.0"
+  }
+}

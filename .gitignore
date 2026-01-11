@@ -1,0 +1,10 @@
+.env
+.deploy/
+node_modules/
+.env.featurehub
+
+
+
+.env.*
+!.env.example
+
