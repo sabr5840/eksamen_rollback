@@ -1,0 +1,65 @@
+name: CI/CD Rollback Demo
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install deps
+        working-directory: app
+        run: npm ci
+
+      - name: Run tests (if any)
+        working-directory: app
+        run: npm test --if-present
+
+  deploy:
+    needs: ci
+    runs-on: self-hosted
+
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env.featurehub
+        run: |
+          cat > .env.featurehub << EOF
+          FEATUREHUB_URL=${{ secrets.FEATUREHUB_URL }}
+          FEATUREHUB_CLIENT_API_KEY=${{ secrets.FEATUREHUB_CLIENT_API_KEY }}
+          FEATURE_KEY=rollback
+          EOF
+
+      # vigtigt: deploy må gerne fejle, så rollback-step kan køre
+      - name: Deploy
+        continue-on-error: true
+        run: |
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh "$IMAGE_TAG"
+
+      - name: Rollback if deploy failed
+        if: ${{ failure() }}
+        run: |
+          echo "Deploy failed – running rollback..."
+
+          if [ ! -f .deploy/last_good_tag ]; then
+            echo "No rollback info found (.deploy/last_good_tag missing)"
+            exit 1
+          fi
+
+          LAST_GOOD="$(cat .deploy/last_good_tag)"
+          echo "Rolling back to last known good: $LAST_GOOD"
+
+          chmod +x scripts/rollback.sh
+          ./scripts/rollback.sh "$LAST_GOOD"
